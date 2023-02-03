@@ -28,17 +28,13 @@ const documentSettings: Map<string, Thenable<Settings>> = new Map();
 
 let supportsConfiguration = false;
 let supportsWorkspaceFolder = false;
-let supportsRelatedInformation = false;
 
 connection.onInitialize((params: InitializeParams) => {
   const capabilities = params.capabilities;
   const workspace = capabilities.workspace;
-  const textDocument = capabilities.textDocument;
 
   supportsConfiguration = !!workspace?.configuration;
   supportsWorkspaceFolder = !!workspace?.workspaceFolders;
-  supportsRelatedInformation =
-    !!textDocument?.publishDiagnostics?.relatedInformation;
 
   const result: InitializeResult = {
     capabilities: {

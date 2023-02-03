@@ -1,0 +1,9 @@
+{
+  "name": "lls",
+  "version": "0.0.1",
+  "description": "Linear Language Server",
+  "main": "dist/index.js",
+  "repository": "https://github.com/wilhelmeek/lls",
+  "author": "wilhelm <helm@hey.com>",
+  "license": "MIT"
+}

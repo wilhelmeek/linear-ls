@@ -58,7 +58,6 @@ connection.onInitialize((params: InitializeParams) => {
 
 connection.onInitialized(() => {
   if (supportsConfiguration) {
-    // Listen to config changes
     connection.client.register(
       DidChangeConfigurationNotification.type,
       undefined
@@ -131,6 +130,7 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
 }
 
 connection.onCompletion(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
     return [
       {

@@ -1,0 +1,30 @@
+{
+  "name": "linear-ls",
+  "version": "1.1.1",
+  "description": "Linear Language Server",
+  "bin": "index.js",
+  "main": "index.js",
+  "keywords": [
+    "lsp",
+    "linear",
+    "language",
+    "productivity"
+  ],
+  "repository": "https://github.com/wilhelmeek/linear-ls",
+  "author": "wilhelm <helm@hey.com>",
+  "license": "MIT",
+  "files": [
+    "dist/*.js",
+    "index.js"
+  ],
+  "dependencies": {
+    "@linear/sdk": "^68.1.0",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.10",
+    "@types/node": "^23",
+    "typescript": "^5.9.3"
+  }
+}

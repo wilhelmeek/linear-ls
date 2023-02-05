@@ -4,15 +4,15 @@ import {
   Diagnostic,
   DiagnosticSeverity,
   ProposedFeatures,
-  InitializeParams,
   DidChangeConfigurationNotification,
   CompletionItem,
   CompletionItemKind,
-  TextDocumentPositionParams,
   TextDocumentSyncKind,
   InitializeResult,
+  CodeActionKind,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
+import { findIssues } from "./linear";
 
 interface Settings {
   projectPrefixes: Array<string>;
@@ -29,7 +29,7 @@ const documentSettings: Map<string, Thenable<Settings>> = new Map();
 let supportsConfiguration = false;
 let supportsWorkspaceFolder = false;
 
-connection.onInitialize((params: InitializeParams) => {
+connection.onInitialize((params) => {
   const capabilities = params.capabilities;
   const workspace = capabilities.workspace;
 
@@ -39,6 +39,7 @@ connection.onInitialize((params: InitializeParams) => {
   const result: InitializeResult = {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
+      codeActionProvider: {},
       completionProvider: {
         resolveProvider: true,
       },
@@ -70,7 +71,7 @@ connection.onDidChangeConfiguration((change) => {
     documentSettings.clear();
   } else {
     // TODO: Validate this and send notification if cooked.
-    globalSettings = <Settings>(change.settings.lls || defaultSettings);
+    globalSettings = change.settings.lls || defaultSettings;
   }
 
   documents.all().forEach(identifyTickets);
@@ -129,26 +130,27 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
-connection.onCompletion(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  (_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-    return [
-      {
-        label: "MOB-1",
-        data: "MOB-1",
-        kind: CompletionItemKind.Reference,
-      },
-    ];
-  }
-);
-
-connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
-  if (item.data === "MOB-1") {
-    item.detail = "Install the application";
-    item.documentation = "Details details";
+// TODO: Use text prompt to trigger completion
+// TODO: Replace the triggering text with link + ticket number
+connection.onCompletion(async (position): Promise<CompletionItem[]> => {
+  const settings = await getDocumentSettings(position.textDocument.uri);
+  if (settings.projectPrefixes.length === 0) {
+    return [];
   }
 
-  return item;
+  connection.console.log("Finding issues");
+  const issues = await findIssues(settings.projectPrefixes, "Splash");
+  if (issues === undefined) {
+    return [];
+  }
+
+  return issues.map((issue) => ({
+    data: issue,
+    detail: issue.description ?? "Not Available",
+    insertText: issue.url,
+    kind: CompletionItemKind.Reference,
+    label: issue.title,
+  }));
 });
 
 documents.listen(connection);

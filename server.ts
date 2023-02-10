@@ -4,7 +4,6 @@ import {
   Diagnostic,
   DiagnosticSeverity,
   ProposedFeatures,
-  DidChangeConfigurationNotification,
   CompletionItem,
   CompletionItemKind,
   TextDocumentSyncKind,
@@ -16,23 +15,14 @@ import { findIssues, getTeamKeys } from "./linear";
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 
-let supportsConfiguration = false;
-let supportsWorkspaceFolder = false;
-
 const teamKeys = new Set<string>();
 
-connection.onInitialize(async (params) => {
+connection.onInitialize(async () => {
   await getTeamKeys().then((keys) => {
     keys.map((k) => {
       teamKeys.add(k);
     });
   });
-
-  const capabilities = params.capabilities;
-  const workspace = capabilities.workspace;
-
-  supportsConfiguration = !!workspace?.configuration;
-  supportsWorkspaceFolder = !!workspace?.workspaceFolders;
 
   const result: InitializeResult = {
     capabilities: {
@@ -44,24 +34,7 @@ connection.onInitialize(async (params) => {
     },
   };
 
-  if (supportsWorkspaceFolder) {
-    result.capabilities.workspace = {
-      workspaceFolders: {
-        supported: true,
-      },
-    };
-  }
-
   return result;
-});
-
-connection.onInitialized(() => {
-  if (supportsConfiguration) {
-    connection.client.register(
-      DidChangeConfigurationNotification.type,
-      undefined
-    );
-  }
 });
 
 documents.onDidChangeContent((change) => {
@@ -84,7 +57,7 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
       diagnostics.push({
         source: "Linear",
         message: m[0],
-        severity: DiagnosticSeverity.Hint,
+        severity: DiagnosticSeverity.Information,
         range: {
           start: textDocument.positionAt(m.index ?? 0),
           end: textDocument.positionAt((m.index ?? 0) + m[0].length),

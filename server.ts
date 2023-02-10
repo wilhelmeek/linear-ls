@@ -9,27 +9,25 @@ import {
   CompletionItemKind,
   TextDocumentSyncKind,
   InitializeResult,
-  CodeActionKind,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { findIssues } from "./linear";
-
-interface Settings {
-  projectPrefixes: Array<string>;
-}
-
-const defaultSettings: Settings = { projectPrefixes: [] };
-let globalSettings: Settings = defaultSettings;
+import { findIssues, getTeamKeys } from "./linear";
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 
-const documentSettings: Map<string, Thenable<Settings>> = new Map();
-
 let supportsConfiguration = false;
 let supportsWorkspaceFolder = false;
 
-connection.onInitialize((params) => {
+const teamKeys = new Set<string>();
+
+connection.onInitialize(async (params) => {
+  await getTeamKeys().then((keys) => {
+    keys.map((k) => {
+      teamKeys.add(k);
+    });
+  });
+
   const capabilities = params.capabilities;
   const workspace = capabilities.workspace;
 
@@ -66,52 +64,19 @@ connection.onInitialized(() => {
   }
 });
 
-connection.onDidChangeConfiguration((change) => {
-  if (supportsConfiguration) {
-    documentSettings.clear();
-  } else {
-    // TODO: Validate this and send notification if cooked.
-    globalSettings = change.settings.lls || defaultSettings;
-  }
-
-  documents.all().forEach(identifyTickets);
-});
-
-function getDocumentSettings(resource: string): Thenable<Settings> {
-  if (!supportsConfiguration) {
-    return Promise.resolve(globalSettings);
-  }
-
-  let result = documentSettings.get(resource);
-  if (!result) {
-    result = connection.workspace.getConfiguration({
-      scopeUri: resource,
-      section: "lls",
-    });
-
-    documentSettings.set(resource, result);
-  }
-
-  return result;
-}
-
-documents.onDidClose((e) => {
-  documentSettings.delete(e.document.uri);
-});
-
 documents.onDidChangeContent((change) => {
   identifyTickets(change.document);
 });
 
 async function identifyTickets(textDocument: TextDocument): Promise<void> {
-  const settings = await getDocumentSettings(textDocument.uri);
-  if (settings.projectPrefixes.length === 0) {
+  if (teamKeys.size === 0) {
     return;
   }
 
   const text = textDocument.getText();
   const diagnostics: Diagnostic[] = [];
-  settings.projectPrefixes.forEach((prefix) => {
+
+  teamKeys.forEach((prefix) => {
     Array.from(text.matchAll(new RegExp(`${prefix}-[0-9]*`, "g"))).forEach(
       (m) => {
         diagnostics.push({
@@ -130,16 +95,15 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
-// TODO: Use text prompt to trigger completion
-// TODO: Replace the triggering text with link + ticket number
 connection.onCompletion(async (position): Promise<CompletionItem[]> => {
-  const settings = await getDocumentSettings(position.textDocument.uri);
-  if (settings.projectPrefixes.length === 0) {
+  if (teamKeys.size === 0) {
     return [];
   }
 
+  connection.console.error(JSON.stringify(position));
+
   connection.console.log("Finding issues");
-  const issues = await findIssues(settings.projectPrefixes, "Splash");
+  const issues = await findIssues(Array.from(teamKeys.values()), "Splash");
   if (issues === undefined) {
     return [];
   }

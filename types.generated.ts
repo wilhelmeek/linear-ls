@@ -656,6 +656,10 @@ export type IntegrationsSettingsCreateInput = {
   slackIssueCreated?: InputMaybe<Scalars['Boolean']>;
   /** Whether to send a Slack message when a comment is created on any of the project or team's issues. */
   slackIssueNewComment?: InputMaybe<Scalars['Boolean']>;
+  /** Whether to receive notification when an SLA has breached on Slack. */
+  slackIssueSlaBreached?: InputMaybe<Scalars['Boolean']>;
+  /** Whether to send a Slack message when an SLA is at high risk */
+  slackIssueSlaHighRisk?: InputMaybe<Scalars['Boolean']>;
   /** Whether to send a Slack message when any of the project or team's issues has a change in status. */
   slackIssueStatusChangedAll?: InputMaybe<Scalars['Boolean']>;
   /** Whether to send a Slack message when any of the project or team's issues change to completed or cancelled. */
@@ -679,6 +683,10 @@ export type IntegrationsSettingsUpdateInput = {
   slackIssueCreated?: InputMaybe<Scalars['Boolean']>;
   /** Whether to send a Slack message when a comment is created on any of the project or team's issues. */
   slackIssueNewComment?: InputMaybe<Scalars['Boolean']>;
+  /** Whether to receive notification when an SLA has breached on Slack. */
+  slackIssueSlaBreached?: InputMaybe<Scalars['Boolean']>;
+  /** Whether to send a Slack message when an SLA is at high risk */
+  slackIssueSlaHighRisk?: InputMaybe<Scalars['Boolean']>;
   /** Whether to send a Slack message when any of the project or team's issues has a change in status. */
   slackIssueStatusChangedAll?: InputMaybe<Scalars['Boolean']>;
   /** Whether to send a Slack message when any of the project or team's issues change to completed or cancelled. */
@@ -817,6 +825,8 @@ export type IssueCreateInput = {
   priority?: InputMaybe<Scalars['Int']>;
   /** The project associated with the issue. */
   projectId?: InputMaybe<Scalars['String']>;
+  /** [ALPHA] The project milestone associated with the issue. */
+  projectMilestoneId?: InputMaybe<Scalars['String']>;
   /** The comment the issue is referencing. */
   referenceCommentId?: InputMaybe<Scalars['String']>;
   /** The position of the issue related to other issues. */
@@ -836,6 +846,8 @@ export type IssueCreateInput = {
 export type IssueDraftCreateInput = {
   /** The identifier of the user to assign the draft to. */
   assigneeId?: InputMaybe<Scalars['String']>;
+  /** The attachments associated with this draft. */
+  attachments?: InputMaybe<Scalars['JSONObject']>;
   /** The cycle associated with the draft. */
   cycleId?: InputMaybe<Scalars['String']>;
   /** The draft description in markdown format. */
@@ -871,6 +883,8 @@ export type IssueDraftCreateInput = {
 export type IssueDraftUpdateInput = {
   /** The identifier of the user to assign the draft to. */
   assigneeId?: InputMaybe<Scalars['String']>;
+  /** The attachments associated with this draft. */
+  attachments?: InputMaybe<Scalars['JSONObject']>;
   /** The cycle associated with the draft. */
   cycleId?: InputMaybe<Scalars['String']>;
   /** The draft description in markdown format. */
@@ -1115,6 +1129,10 @@ export type IssueUpdateInput = {
   priority?: InputMaybe<Scalars['Int']>;
   /** The project associated with the issue. */
   projectId?: InputMaybe<Scalars['String']>;
+  /** [ALPHA] The project milestone associated with the issue. */
+  projectMilestoneId?: InputMaybe<Scalars['String']>;
+  /** [Internal] The timestamp at which an issue will be considered in breach of SLA. */
+  slaBreachesAt?: InputMaybe<Scalars['DateTime']>;
   /** The identifier of the user who snoozed the issue. */
   snoozedById?: InputMaybe<Scalars['String']>;
   /** The time until an issue will be snoozed in Triage view. */
@@ -1218,11 +1236,15 @@ export type NotificationSubscriptionCreateInput = {
   projectNotificationSubscriptionType?: InputMaybe<ProjectNotificationSubscriptionType>;
   /** The identifier of the team to subscribe to. */
   teamId?: InputMaybe<Scalars['String']>;
+  /** The types of notifications of the team subscription. */
+  teamNotificationSubscriptionTypes?: InputMaybe<Array<Scalars['String']>>;
 };
 
 export type NotificationSubscriptionUpdateInput = {
   /** The type of the project subscription. */
-  projectNotificationSubscriptionType: ProjectNotificationSubscriptionType;
+  projectNotificationSubscriptionType?: InputMaybe<ProjectNotificationSubscriptionType>;
+  /** The types of notifications of the team subscription. */
+  teamNotificationSubscriptionTypes?: InputMaybe<Array<Scalars['String']>>;
 };
 
 export type NotificationUpdateInput = {
@@ -1713,6 +1735,30 @@ export type ProjectLinkUpdateInput = {
   label?: InputMaybe<Scalars['String']>;
   /** The URL of the link. */
   url?: InputMaybe<Scalars['String']>;
+};
+
+export type ProjectMilestoneCreateInput = {
+  /** The description of the project milestone. */
+  description?: InputMaybe<Scalars['String']>;
+  /** The identifier in UUID v4 format. If none is provided, the backend will generate one. */
+  id?: InputMaybe<Scalars['String']>;
+  /** The name of the project milestone. */
+  name: Scalars['String'];
+  /** Related project for the project milestone. */
+  projectId: Scalars['String'];
+  /** The planned target date of the project milestone. */
+  targetDate?: InputMaybe<Scalars['TimelessDate']>;
+};
+
+export type ProjectMilestoneUpdateInput = {
+  /** The description of the project milestone. */
+  description?: InputMaybe<Scalars['String']>;
+  /** The name of the project milestone. */
+  name?: InputMaybe<Scalars['String']>;
+  /** Related project for the project milestone. */
+  projectId?: InputMaybe<Scalars['String']>;
+  /** The planned target date of the project milestone. */
+  targetDate?: InputMaybe<Scalars['TimelessDate']>;
 };
 
 /** The type of a project notification subscription. */
@@ -2280,6 +2326,8 @@ export type UpdateOrganizationInput = {
   reducedPersonalInformation?: InputMaybe<Scalars['Boolean']>;
   /** Whether the organization is using roadmap. */
   roadmapEnabled?: InputMaybe<Scalars['Boolean']>;
+  /** Internal. Whether SLA's have been enabled for the organization. */
+  slaEnabled?: InputMaybe<Scalars['Boolean']>;
   /** The URL key of the organization. */
   urlKey?: InputMaybe<Scalars['String']>;
 };
@@ -2474,6 +2522,7 @@ export type ViewType =
   | 'inbox'
   | 'label'
   | 'myIssues'
+  | 'myIssuesActivity'
   | 'myIssuesCreatedByMe'
   | 'myIssuesSubscribedTo'
   | 'myIssuesTouchedByMe'
@@ -2524,24 +2573,12 @@ export type WebhookUpdateInput = {
   url?: InputMaybe<Scalars['String']>;
 };
 
-/** The conditions to match different events, which need to be true for workflow to be started. */
-export type WorkflowConditions = {
-  /** The conditions to match triggers based on issue (creation, update, deletion). */
-  issue: WorkflowEntityPropertyMatcher;
-};
-
-/** Object to provide conditions to match an entity change. */
-export type WorkflowEntityPropertyMatcher = {
-  /** The optional list of property matchers that all have to match. */
-  and?: InputMaybe<Array<WorkflowEntityPropertyMatcher>>;
-  /** The initial value of the property to match. */
-  fromValue?: InputMaybe<Scalars['String']>;
-  /** The optional list of property matchers where at least one have to match. */
-  or?: InputMaybe<Array<WorkflowEntityPropertyMatcher>>;
-  /** The property to check for matching. */
-  property: Scalars['String'];
-  /** The new value of the property to match. */
-  toValue?: InputMaybe<Scalars['String']>;
+/** A condition to match for the workflow to be triggered. */
+export type WorkflowCondition = {
+  /** Trigger the workflow when an issue matches the filter. Can only be used when the trigger type is `Issue`. */
+  issueFilter?: InputMaybe<IssueFilter>;
+  /** Triggers the workflow when a project matches the filter. Can only be used when the trigger type is `Project`. */
+  projectFilter?: InputMaybe<ProjectFilter>;
 };
 
 export type WorkflowStateCreateInput = {
@@ -2598,15 +2635,22 @@ export type WorkflowStateUpdateInput = {
   position?: InputMaybe<Scalars['Float']>;
 };
 
-export type WorkflowTriggerType =
+export type WorkflowTrigger =
   | 'cron'
-  | 'issueCreated'
-  | 'issueDeleted'
-  | 'issueUpdated';
+  | 'entityCreated'
+  | 'entityCreatedOrUpdated'
+  | 'entityRemoved'
+  | 'entityUnarchived'
+  | 'entityUpdated';
+
+export type WorkflowTriggerType =
+  | 'Issue'
+  | 'Project';
 
 export type WorkflowType =
   | 'custom'
-  | 'recurringIssue';
+  | 'recurringIssue'
+  | 'sla';
 
 export type ZendeskSettingsInput = {
   /** Whether a ticket should be automatically reopened when its linked Linear issue is cancelled. */
@@ -2626,6 +2670,11 @@ export type ZendeskSettingsInput = {
   /** The URL of the connected Zendesk organization. */
   url: Scalars['String'];
 };
+
+export type FindTeamPrefixesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type FindTeamPrefixesQuery = { __typename?: 'Query', teams: { __typename?: 'TeamConnection', nodes: Array<{ __typename?: 'Team', id: string, key: string }> } };
 
 export type FindIssuesQueryVariables = Exact<{
   teamFilter: TeamFilter;

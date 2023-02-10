@@ -105,14 +105,21 @@ connection.onCompletion(async (params): Promise<CompletionItem[]> => {
   }
 
   // TODO: Edit text action to support sentences
-  return issues.map((issue) => ({
-    data: issue,
-    detail: issue.description ?? "Not Available",
-    insertText: `[${issue.identifier}](${issue.url})`,
-    filterText: `${issue.team.key}-${issue.title}`,
-    label: `${issue.identifier}: ${issue.title}`,
-    kind: CompletionItemKind.Reference,
-  }));
+  return issues.map((issue) => {
+    let label = `${issue.identifier}: ${issue.title}`;
+    if (label.length > 60) {
+      label = label.substring(0, 60) + "...";
+    }
+
+    return {
+      data: issue,
+      detail: issue.description ?? "Not available",
+      insertText: `[${issue.identifier}](${issue.url})`,
+      filterText: `${issue.team.key}-${issue.title}`,
+      label,
+      kind: CompletionItemKind.Reference,
+    };
+  });
 });
 
 documents.listen(connection);

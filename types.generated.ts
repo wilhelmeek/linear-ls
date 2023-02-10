@@ -2682,4 +2682,4 @@ export type FindIssuesQueryVariables = Exact<{
 }>;
 
 
-export type FindIssuesQuery = { __typename?: 'Query', teams: { __typename?: 'TeamConnection', nodes: Array<{ __typename?: 'Team', id: string, issues: { __typename?: 'IssueConnection', nodes: Array<{ __typename?: 'Issue', id: string, identifier: string, title: string, description?: string | null, url: string }> } }> } };
+export type FindIssuesQuery = { __typename?: 'Query', teams: { __typename?: 'TeamConnection', nodes: Array<{ __typename?: 'Team', id: string, issues: { __typename?: 'IssueConnection', nodes: Array<{ __typename?: 'Issue', id: string, identifier: string, title: string, description?: string | null, url: string, team: { __typename?: 'Team', id: string, key: string } }> } }> } };

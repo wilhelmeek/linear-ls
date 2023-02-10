@@ -76,44 +76,69 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
   const text = textDocument.getText();
   const diagnostics: Diagnostic[] = [];
 
-  teamKeys.forEach((prefix) => {
-    Array.from(text.matchAll(new RegExp(`${prefix}-[0-9]*`, "g"))).forEach(
-      (m) => {
-        diagnostics.push({
-          source: "Linear",
-          message: m[0],
-          severity: DiagnosticSeverity.Hint,
-          range: {
-            start: textDocument.positionAt(m.index ?? 0),
-            end: textDocument.positionAt((m.index ?? 0) + m[0].length),
-          },
-        });
-      }
-    );
-  });
+  Array.from(teamKeys)
+    .flatMap((prefix) => {
+      return Array.from(text.matchAll(new RegExp(`${prefix}-[0-9]*`, "g")));
+    })
+    .forEach((m) => {
+      diagnostics.push({
+        source: "Linear",
+        message: m[0],
+        severity: DiagnosticSeverity.Hint,
+        range: {
+          start: textDocument.positionAt(m.index ?? 0),
+          end: textDocument.positionAt((m.index ?? 0) + m[0].length),
+        },
+      });
+    });
 
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
-connection.onCompletion(async (position): Promise<CompletionItem[]> => {
+connection.onCompletion(async (params): Promise<CompletionItem[]> => {
   if (teamKeys.size === 0) {
     return [];
   }
 
-  connection.console.error(JSON.stringify(position));
+  const document = documents.get(params.textDocument.uri);
+  if (!document) {
+    return [];
+  }
 
-  connection.console.log("Finding issues");
-  const issues = await findIssues(Array.from(teamKeys.values()), "Splash");
+  const lineToPosition = document?.getText({
+    start: { line: params.position.line, character: 0 },
+    end: { line: params.position.line, character: params.position.character },
+  });
+
+  const lastMatch = Array.from(teamKeys)
+    .flatMap((prefix) =>
+      Array.from(lineToPosition.matchAll(new RegExp(`(${prefix})-(.*)`, "g")))
+    )
+    .at(-1);
+
+  if (!lastMatch) {
+    return [];
+  }
+
+  const [, teamKey, searchString] = lastMatch;
+
+  if (!teamKey || !searchString) {
+    return [];
+  }
+
+  const issues = await findIssues([teamKey], searchString);
   if (issues === undefined) {
     return [];
   }
 
+  // TODO: Edit text action to support sentences
   return issues.map((issue) => ({
     data: issue,
     detail: issue.description ?? "Not Available",
-    insertText: issue.url,
+    insertText: `[${issue.identifier}](${issue.url})`,
+    filterText: `${issue.team.key}-${issue.title}`,
+    label: `${issue.identifier}: ${issue.title}`,
     kind: CompletionItemKind.Reference,
-    label: issue.title,
   }));
 });
 

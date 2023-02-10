@@ -50,6 +50,10 @@ export async function findIssues(teamKeys: string[], issueTitle: string) {
                 nodes {
                   id
                   identifier
+                  team {
+                    id
+                    key
+                  }
                   title
                   description
                   url

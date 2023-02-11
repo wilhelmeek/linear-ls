@@ -2676,6 +2676,8 @@ export type FindTeamPrefixesQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type FindTeamPrefixesQuery = { __typename?: 'Query', teams: { __typename?: 'TeamConnection', nodes: Array<{ __typename?: 'Team', id: string, key: string }> } };
 
+export type IssueFragment = { __typename?: 'Issue', id: string, identifier: string, title: string, description?: string | null, url: string, team: { __typename?: 'Team', id: string, key: string } };
+
 export type FindIssuesQueryVariables = Exact<{
   teamFilter: TeamFilter;
   issueFilter: IssueFilter;

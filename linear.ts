@@ -38,6 +38,20 @@ export async function getTeamKeys() {
   return resp.data?.teams.nodes.map((t) => t.key) ?? [];
 }
 
+const issueFragment = gql`
+  fragment Issue on Issue {
+    id
+    identifier
+    title
+    description
+    url
+    team {
+      id
+      key
+    }
+  }
+`;
+
 export async function findIssues(teamKeys: string[], issueTitle: string) {
   const resp = await client
     .query(
@@ -48,20 +62,13 @@ export async function findIssues(teamKeys: string[], issueTitle: string) {
               id
               issues(filter: $issueFilter) {
                 nodes {
-                  id
-                  identifier
-                  team {
-                    id
-                    key
-                  }
-                  title
-                  description
-                  url
+                  ...Issue
                 }
               }
             }
           }
         }
+        ${issueFragment}
       `,
       {
         teamFilter: {

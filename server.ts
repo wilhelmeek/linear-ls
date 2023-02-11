@@ -11,11 +11,13 @@ import {
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { findIssues, getTeamKeys } from "./linear";
+import { IssueFragment } from "./types.generated";
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 
 const teamKeys = new Set<string>();
+const issues = new Map<string, IssueFragment | undefined>();
 
 connection.onInitialize(async () => {
   await getTeamKeys().then((keys) => {
@@ -54,13 +56,25 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
       return Array.from(text.matchAll(new RegExp(`${prefix}-[0-9]*`, "g")));
     })
     .forEach((m) => {
+      const issueId = m[0];
+      const positionStart = textDocument.positionAt(m.index ?? 0);
+      const positionEnd = textDocument.positionAt(
+        issueId.length + (m.index ?? 0)
+      );
+
+      // Write down that we've seen the issue, but don't
+      // fetch the definition just yet.
+      if (!issues.has(issueId)) {
+        issues.set(issueId, undefined);
+      }
+
       diagnostics.push({
         source: "Linear",
-        message: m[0],
+        message: issueId,
         severity: DiagnosticSeverity.Information,
         range: {
-          start: textDocument.positionAt(m.index ?? 0),
-          end: textDocument.positionAt((m.index ?? 0) + m[0].length),
+          start: positionStart,
+          end: positionEnd,
         },
       });
     });
@@ -104,7 +118,6 @@ connection.onCompletion(async (params): Promise<CompletionItem[]> => {
     return [];
   }
 
-  // TODO: Edit text action to support sentences
   return issues.map((issue) => {
     let label = `${issue.identifier}: ${issue.title}`;
     if (label.length > 60) {

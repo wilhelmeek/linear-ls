@@ -4,6 +4,8 @@ import {
   FindIssuesQuery,
   FindIssuesQueryVariables,
   FindTeamPrefixesQuery,
+  GetIssueQuery,
+  GetIssueQueryVariables,
 } from "./types.generated";
 
 const client = createClient({
@@ -51,6 +53,26 @@ const issueFragment = gql`
     }
   }
 `;
+
+export async function getIssue(issueId: string) {
+  const resp = await client
+    .query(
+      gql<GetIssueQuery, GetIssueQueryVariables>`
+        query GetIssue($id: String!) {
+          issue(id: $id) {
+            ...Issue
+          }
+        }
+        ${issueFragment}
+      `,
+      {
+        id: issueId,
+      }
+    )
+    .toPromise();
+
+  return resp.data?.issue;
+}
 
 export async function findIssues(teamKeys: string[], issueTitle: string) {
   const resp = await client

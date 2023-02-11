@@ -10,7 +10,7 @@ import {
   InitializeResult,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { findIssues, getTeamKeys } from "./linear";
+import { findIssues, getIssue, getTeamKeys } from "./linear";
 import { IssueFragment } from "./types.generated";
 
 const connection = createConnection(ProposedFeatures.all);
@@ -30,6 +30,7 @@ connection.onInitialize(async () => {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
       codeActionProvider: {},
+      hoverProvider: {},
       completionProvider: {
         resolveProvider: true,
       },
@@ -81,6 +82,15 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
 
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
+
+connection.onHover(async () => {
+  const issue = await getIssue("df7d5da6-70b1-4424-821d-b2c18953d3ee");
+  if (!issue) {
+    return null;
+  }
+
+  return { contents: issue.description ?? "Not available" };
+});
 
 connection.onCompletion(async (params): Promise<CompletionItem[]> => {
   if (teamKeys.size === 0) {

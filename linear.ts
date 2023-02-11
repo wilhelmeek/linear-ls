@@ -1,11 +1,11 @@
 import { createClient, defaultExchanges, gql } from "@urql/core";
 import fetch from "node-fetch";
 import {
-  FindIssuesQuery,
-  FindIssuesQueryVariables,
+  FindIssuesByTitleQuery,
+  FindIssuesByTitleQueryVariables,
   FindTeamPrefixesQuery,
-  GetIssueQuery,
-  GetIssueQueryVariables,
+  GetIssueByKeyQuery,
+  GetIssueByKeyQueryVariables,
 } from "./types.generated";
 
 const client = createClient({
@@ -54,31 +54,54 @@ const issueFragment = gql`
   }
 `;
 
-export async function getIssue(issueId: string) {
+export async function getIssueByKey(key: string) {
+  const components = key.split("-");
+
+  const teamKey = components[0];
+  if (teamKey?.length !== 3) {
+    return;
+  }
+
+  const issueNumber = Number(components[1]);
+  if (!Number.isInteger(issueNumber)) {
+    return;
+  }
+
   const resp = await client
     .query(
-      gql<GetIssueQuery, GetIssueQueryVariables>`
-        query GetIssue($id: String!) {
-          issue(id: $id) {
-            ...Issue
+      gql<GetIssueByKeyQuery, GetIssueByKeyQueryVariables>`
+        query GetIssueByKey($filter: IssueFilter!) {
+          issues(filter: $filter) {
+            nodes {
+              ...Issue
+            }
           }
         }
         ${issueFragment}
       `,
       {
-        id: issueId,
+        filter: {
+          team: { key: { eqIgnoreCase: teamKey } },
+          number: { eq: issueNumber },
+        },
       }
     )
     .toPromise();
 
-  return resp.data?.issue;
+  return resp.data?.issues?.nodes[0];
 }
 
-export async function findIssues(teamKeys: string[], issueTitle: string) {
+export async function findIssuesByTitle(
+  teamKeys: string[],
+  issueTitle: string
+) {
   const resp = await client
     .query(
-      gql<FindIssuesQuery, FindIssuesQueryVariables>`
-        query FindIssues($teamFilter: TeamFilter!, $issueFilter: IssueFilter!) {
+      gql<FindIssuesByTitleQuery, FindIssuesByTitleQueryVariables>`
+        query FindIssuesByTitle(
+          $teamFilter: TeamFilter!
+          $issueFilter: IssueFilter!
+        ) {
           teams(filter: $teamFilter) {
             nodes {
               id

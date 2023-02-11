@@ -2678,17 +2678,17 @@ export type FindTeamPrefixesQuery = { __typename?: 'Query', teams: { __typename?
 
 export type IssueFragment = { __typename?: 'Issue', id: string, identifier: string, title: string, description?: string | null, url: string, team: { __typename?: 'Team', id: string, key: string } };
 
-export type GetIssueQueryVariables = Exact<{
-  id: Scalars['String'];
+export type GetIssueByKeyQueryVariables = Exact<{
+  filter: IssueFilter;
 }>;
 
 
-export type GetIssueQuery = { __typename?: 'Query', issue: { __typename?: 'Issue', id: string, identifier: string, title: string, description?: string | null, url: string, team: { __typename?: 'Team', id: string, key: string } } };
+export type GetIssueByKeyQuery = { __typename?: 'Query', issues: { __typename?: 'IssueConnection', nodes: Array<{ __typename?: 'Issue', id: string, identifier: string, title: string, description?: string | null, url: string, team: { __typename?: 'Team', id: string, key: string } }> } };
 
-export type FindIssuesQueryVariables = Exact<{
+export type FindIssuesByTitleQueryVariables = Exact<{
   teamFilter: TeamFilter;
   issueFilter: IssueFilter;
 }>;
 
 
-export type FindIssuesQuery = { __typename?: 'Query', teams: { __typename?: 'TeamConnection', nodes: Array<{ __typename?: 'Team', id: string, issues: { __typename?: 'IssueConnection', nodes: Array<{ __typename?: 'Issue', id: string, identifier: string, title: string, description?: string | null, url: string, team: { __typename?: 'Team', id: string, key: string } }> } }> } };
+export type FindIssuesByTitleQuery = { __typename?: 'Query', teams: { __typename?: 'TeamConnection', nodes: Array<{ __typename?: 'Team', id: string, issues: { __typename?: 'IssueConnection', nodes: Array<{ __typename?: 'Issue', id: string, identifier: string, title: string, description?: string | null, url: string, team: { __typename?: 'Team', id: string, key: string } }> } }> } };

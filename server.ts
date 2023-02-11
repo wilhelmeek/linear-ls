@@ -10,14 +10,21 @@ import {
   InitializeResult,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
-import { findIssues, getIssue, getTeamKeys } from "./linear";
+import { findIssuesByTitle, getIssueByKey, getTeamKeys } from "./linear";
 import { IssueFragment } from "./types.generated";
+
+type IssuePosition = {
+  issueKey: string;
+  offsetStart: number;
+  offsetEnd: number;
+};
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 
 const teamKeys = new Set<string>();
 const issues = new Map<string, IssueFragment | undefined>();
+const issuePositions = new Map<string, Array<IssuePosition>>();
 
 connection.onInitialize(async () => {
   await getTeamKeys().then((keys) => {
@@ -51,27 +58,34 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
 
   const text = textDocument.getText();
   const diagnostics: Diagnostic[] = [];
+  const documentPositions: Array<IssuePosition> = [];
 
   Array.from(teamKeys)
     .flatMap((prefix) => {
       return Array.from(text.matchAll(new RegExp(`${prefix}-[0-9]*`, "g")));
     })
     .forEach((m) => {
-      const issueId = m[0];
+      const issueKey = m[0];
       const positionStart = textDocument.positionAt(m.index ?? 0);
       const positionEnd = textDocument.positionAt(
-        issueId.length + (m.index ?? 0)
+        issueKey.length + (m.index ?? 0)
       );
 
       // Write down that we've seen the issue, but don't
       // fetch the definition just yet.
-      if (!issues.has(issueId)) {
-        issues.set(issueId, undefined);
+      if (!issues.has(issueKey)) {
+        issues.set(issueKey, undefined);
       }
+
+      documentPositions.push({
+        issueKey,
+        offsetStart: textDocument.offsetAt(positionStart),
+        offsetEnd: textDocument.offsetAt(positionEnd),
+      });
 
       diagnostics.push({
         source: "Linear",
-        message: issueId,
+        message: issueKey,
         severity: DiagnosticSeverity.Information,
         range: {
           start: positionStart,
@@ -80,16 +94,39 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
       });
     });
 
+  issuePositions.set(textDocument.uri, documentPositions);
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
-connection.onHover(async () => {
-  const issue = await getIssue("df7d5da6-70b1-4424-821d-b2c18953d3ee");
-  if (!issue) {
-    return null;
+connection.onHover(async (params) => {
+  const documentPositions = issuePositions.get(params.textDocument.uri);
+  if (!documentPositions) {
+    return;
   }
 
-  return { contents: issue.description ?? "Not available" };
+  const textDocument = documents.get(params.textDocument.uri);
+  if (!textDocument) {
+    return;
+  }
+
+  const cursorOffset = textDocument.offsetAt(params.position);
+  const targetIssue = documentPositions.find(
+    (dp) => dp.offsetStart <= cursorOffset && dp.offsetEnd > cursorOffset
+  );
+
+  if (!targetIssue) {
+    connection.console.error(JSON.stringify(documentPositions));
+    return;
+  }
+
+  const issue = await getIssueByKey(targetIssue.issueKey);
+  if (!issue) {
+    return;
+  }
+
+  return {
+    contents: issue.description ?? "Not available",
+  };
 });
 
 connection.onCompletion(async (params): Promise<CompletionItem[]> => {
@@ -123,7 +160,7 @@ connection.onCompletion(async (params): Promise<CompletionItem[]> => {
     return [];
   }
 
-  const issues = await findIssues([teamKey], searchString);
+  const issues = await findIssuesByTitle([teamKey], searchString);
   if (issues === undefined) {
     return [];
   }

@@ -1,4 +1,4 @@
-# lls
+# linear-ls
 
 Linear Language Server
 

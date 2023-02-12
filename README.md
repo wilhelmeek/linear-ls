@@ -13,8 +13,8 @@ npm i -g linear-ls
 If you use `lspconfig`, add the following:
 
 ```lua
-if not lspconfigconfigs.lls then
-  lspconfigconfigs.lls = {
+if not lspconfigconfigs.linear_ls then
+  lspconfigconfigs.linear_ls = {
     default_config = {
       cmd = { "linear-ls", "--stdio" },
       filetypes = { "typescript" },

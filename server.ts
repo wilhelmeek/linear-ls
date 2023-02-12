@@ -9,12 +9,14 @@ import {
   TextDocumentSyncKind,
   InitializeResult,
 } from "vscode-languageserver/node";
-import { TextDocument } from "vscode-languageserver-textdocument";
+import { Position, TextDocument } from "vscode-languageserver-textdocument";
 import { findIssuesByTitle, getIssueByKey, getTeamKeys } from "./linear";
 import { IssueFragment } from "./types.generated";
 
 type IssuePosition = {
   issueKey: string;
+  positionStart: Position;
+  positionEnd: Position;
   offsetStart: number;
   offsetEnd: number;
 };
@@ -38,9 +40,7 @@ connection.onInitialize(async () => {
       textDocumentSync: TextDocumentSyncKind.Incremental,
       codeActionProvider: {},
       hoverProvider: {},
-      completionProvider: {
-        resolveProvider: true,
-      },
+      completionProvider: { resolveProvider: true },
     },
   };
 
@@ -79,6 +79,8 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
 
       documentPositions.push({
         issueKey,
+        positionStart,
+        positionEnd,
         offsetStart: textDocument.offsetAt(positionStart),
         offsetEnd: textDocument.offsetAt(positionEnd),
       });
@@ -115,7 +117,6 @@ connection.onHover(async (params) => {
   );
 
   if (!targetIssue) {
-    connection.console.error(JSON.stringify(documentPositions));
     return;
   }
 

@@ -8,6 +8,29 @@ Linear Language Server
 npm i -g linear-ls
 ```
 
+### neovim
+
+If you use `lspconfig`, add the following:
+
+```lua
+if not lspconfigconfigs.lls then
+  lspconfigconfigs.lls = {
+    default_config = {
+      cmd = { "linear-ls", "--stdio" },
+      filetypes = { "typescript" },
+      root_dir = function(fname)
+        return lspconfig.util.find_git_ancestor(fname)
+      end,
+    },
+}
+end
+lspconfig.lls.setup({
+  capabilities = capabilities,
+})
+```
+
+And have your Linear token sourced as `LINEAR_API_KEY`.
+
 ## Features
 
 ### Hover on Issues

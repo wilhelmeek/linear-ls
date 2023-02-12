@@ -4,6 +4,12 @@
   "description": "Linear Language Server",
   "bin": "index.js",
   "main": "index.js",
+  "keywords": [
+    "lsp",
+    "linear",
+    "language",
+    "productivity"
+  ],
   "repository": "https://github.com/wilhelmeek/lls",
   "author": "wilhelm <helm@hey.com>",
   "license": "MIT",

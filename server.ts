@@ -8,6 +8,7 @@ import {
   CompletionItemKind,
   TextDocumentSyncKind,
   InitializeResult,
+  CodeActionTriggerKind,
 } from "vscode-languageserver/node";
 import { Position, TextDocument } from "vscode-languageserver-textdocument";
 import { findIssuesByTitle, getIssueByKey, getTeamKeys } from "./linear";
@@ -45,6 +46,23 @@ connection.onInitialize(async () => {
   };
 
   return result;
+});
+
+connection.onCodeAction((params) => {
+  if (params.context.triggerKind === CodeActionTriggerKind.Invoked) {
+    const textDocument = documents.get(params.textDocument.uri);
+    if (!textDocument) {
+      return;
+    }
+
+    const text = textDocument.getText(params.range);
+    if (!text) {
+      return;
+    }
+
+    // TODO: Implement command to create ticket
+    return [{ title: "Create Ticket" }];
+  }
 });
 
 documents.onDidChangeContent((change) => {

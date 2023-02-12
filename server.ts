@@ -48,15 +48,7 @@ connection.onInitialize(async () => {
 });
 
 documents.onDidChangeContent((change) => {
-  identifyTickets(change.document);
-});
-
-async function identifyTickets(textDocument: TextDocument): Promise<void> {
-  if (teamKeys.size === 0) {
-    return;
-  }
-
-  const text = textDocument.getText();
+  const text = change.document.getText();
   const diagnostics: Diagnostic[] = [];
   const documentPositions: Array<IssuePosition> = [];
 
@@ -66,8 +58,8 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
     })
     .forEach((m) => {
       const issueKey = m[0];
-      const positionStart = textDocument.positionAt(m.index ?? 0);
-      const positionEnd = textDocument.positionAt(
+      const positionStart = change.document.positionAt(m.index ?? 0);
+      const positionEnd = change.document.positionAt(
         issueKey.length + (m.index ?? 0)
       );
 
@@ -81,8 +73,8 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
         issueKey,
         positionStart,
         positionEnd,
-        offsetStart: textDocument.offsetAt(positionStart),
-        offsetEnd: textDocument.offsetAt(positionEnd),
+        offsetStart: change.document.offsetAt(positionStart),
+        offsetEnd: change.document.offsetAt(positionEnd),
       });
 
       diagnostics.push({
@@ -96,9 +88,9 @@ async function identifyTickets(textDocument: TextDocument): Promise<void> {
       });
     });
 
-  issuePositions.set(textDocument.uri, documentPositions);
-  connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
-}
+  issuePositions.set(change.document.uri, documentPositions);
+  connection.sendDiagnostics({ uri: change.document.uri, diagnostics });
+});
 
 connection.onHover(async (params) => {
   const documentPositions = issuePositions.get(params.textDocument.uri);
@@ -156,7 +148,6 @@ connection.onCompletion(async (params): Promise<CompletionItem[]> => {
   }
 
   const [, teamKey, searchString] = lastMatch;
-
   if (!teamKey || !searchString) {
     return [];
   }

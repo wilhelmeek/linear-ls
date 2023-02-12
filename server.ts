@@ -1,8 +1,6 @@
 import {
   createConnection,
   TextDocuments,
-  Diagnostic,
-  DiagnosticSeverity,
   ProposedFeatures,
   CompletionItem,
   CompletionItemKind,
@@ -29,6 +27,7 @@ const teamKeys = new Set<string>();
 const issues = new Map<string, IssueFragment | undefined>();
 const issuePositions = new Map<string, Array<IssuePosition>>();
 
+// [MOB-201](https://linear.app/eucalyptus/issue/MOB-201/devices-screen-not-paired-state)
 connection.onInitialize(async () => {
   await getTeamKeys().then((keys) => {
     keys.map((k) => {
@@ -67,7 +66,6 @@ connection.onCodeAction((params) => {
 
 documents.onDidChangeContent((change) => {
   const text = change.document.getText();
-  const diagnostics: Diagnostic[] = [];
   const documentPositions: Array<IssuePosition> = [];
 
   Array.from(teamKeys)
@@ -94,20 +92,9 @@ documents.onDidChangeContent((change) => {
         offsetStart: change.document.offsetAt(positionStart),
         offsetEnd: change.document.offsetAt(positionEnd),
       });
-
-      diagnostics.push({
-        source: "Linear",
-        message: issueKey,
-        severity: DiagnosticSeverity.Information,
-        range: {
-          start: positionStart,
-          end: positionEnd,
-        },
-      });
     });
 
   issuePositions.set(change.document.uri, documentPositions);
-  connection.sendDiagnostics({ uri: change.document.uri, diagnostics });
 });
 
 connection.onHover(async (params) => {

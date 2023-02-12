@@ -27,7 +27,6 @@ const teamKeys = new Set<string>();
 const issues = new Map<string, IssueFragment | undefined>();
 const issuePositions = new Map<string, Array<IssuePosition>>();
 
-// [MOB-201](https://linear.app/eucalyptus/issue/MOB-201/devices-screen-not-paired-state)
 connection.onInitialize(async () => {
   await getTeamKeys().then((keys) => {
     keys.map((k) => {

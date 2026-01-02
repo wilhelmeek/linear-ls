@@ -44,7 +44,7 @@ connection.onInitialize(async () => {
       completionProvider: { resolveProvider: true },
       semanticTokensProvider: {
         legend: {
-          tokenTypes: [SemanticTokenTypes.class],
+          tokenTypes: [SemanticTokenTypes.variable],
           tokenModifiers: [],
         },
         full: true,
@@ -215,7 +215,7 @@ connection.languages.semanticTokens.on((params) => {
       position.positionStart.line,
       position.positionStart.character,
       length,
-      0, // token type index (0 = class, as defined in legend)
+      0, // token type index (0 = variable, as defined in legend)
       0 // token modifiers (none)
     );
   }

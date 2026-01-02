@@ -7,6 +7,8 @@ import {
   TextDocumentSyncKind,
   InitializeResult,
   CodeActionTriggerKind,
+  SemanticTokensBuilder,
+  SemanticTokenTypes,
 } from "vscode-languageserver/node";
 import { Position, TextDocument } from "vscode-languageserver-textdocument";
 import { findIssuesByTitle, getIssueByKey, getTeamKeys } from "./linear";
@@ -40,6 +42,13 @@ connection.onInitialize(async () => {
       codeActionProvider: {},
       hoverProvider: {},
       completionProvider: { resolveProvider: true },
+      semanticTokensProvider: {
+        legend: {
+          tokenTypes: [SemanticTokenTypes.class],
+          tokenModifiers: [],
+        },
+        full: true,
+      },
     },
   };
 
@@ -176,6 +185,42 @@ connection.onCompletion(async (params): Promise<CompletionItem[]> => {
       kind: CompletionItemKind.Reference,
     };
   });
+});
+
+connection.languages.semanticTokens.on((params) => {
+  const documentPositions = issuePositions.get(params.textDocument.uri);
+  if (!documentPositions) {
+    return { data: [] };
+  }
+
+  const textDocument = documents.get(params.textDocument.uri);
+  if (!textDocument) {
+    return { data: [] };
+  }
+
+  const builder = new SemanticTokensBuilder();
+
+  // Sort positions by line and character to ensure proper ordering
+  const sortedPositions = [...documentPositions].sort((a, b) => {
+    if (a.positionStart.line !== b.positionStart.line) {
+      return a.positionStart.line - b.positionStart.line;
+    }
+    return a.positionStart.character - b.positionStart.character;
+  });
+
+  for (const position of sortedPositions) {
+    const length =
+      position.positionEnd.character - position.positionStart.character;
+    builder.push(
+      position.positionStart.line,
+      position.positionStart.character,
+      length,
+      0, // token type index (0 = class, as defined in legend)
+      0 // token modifiers (none)
+    );
+  }
+
+  return builder.build();
 });
 
 documents.listen(connection);

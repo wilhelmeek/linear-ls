@@ -193,11 +193,6 @@ connection.languages.semanticTokens.on((params) => {
     return { data: [] };
   }
 
-  const textDocument = documents.get(params.textDocument.uri);
-  if (!textDocument) {
-    return { data: [] };
-  }
-
   const builder = new SemanticTokensBuilder();
 
   // Sort positions by line and character to ensure proper ordering

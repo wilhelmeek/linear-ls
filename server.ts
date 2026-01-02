@@ -204,6 +204,11 @@ connection.languages.semanticTokens.on((params) => {
   });
 
   for (const position of sortedPositions) {
+    // Semantic tokens are assumed to be single-line. If a token ever spans multiple
+    // lines, its length must be calculated differently. For now, we ignore such ranges.
+    if (position.positionStart.line !== position.positionEnd.line) {
+      continue;
+    }
     const length =
       position.positionEnd.character - position.positionStart.character;
     builder.push(

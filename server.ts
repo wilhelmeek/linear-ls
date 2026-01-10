@@ -51,7 +51,7 @@ async function diagnostics(textDocument: TextDocument) {
 		let issue = issues.get(p.issueKey);
 		if (!issue) {
 			issue = await client.issue(p.issueKey).catch(() => undefined);
-			issues.set(p.issueKey, issue);
+			if (issue) issues.set(p.issueKey, issue);
 		}
 
 		if (issue?.completedAt) {
@@ -97,7 +97,7 @@ conn.onInitialize(async () => {
 			textDocumentSync: TextDocumentSyncKind.Incremental,
 			codeActionProvider: {},
 			executeCommandProvider: {
-				commands: ["linear-ls.createTicket"],
+				commands: ["linear-ls.createIssue", "linear-ls.openIssue"],
 			},
 			hoverProvider: {},
 			completionProvider: { resolveProvider: true },
@@ -112,33 +112,66 @@ conn.onInitialize(async () => {
 	};
 });
 
-conn.onCodeAction((params) => {
+conn.onCodeAction(async (params) => {
+	const actions: CodeAction[] = [];
+
 	if (params.context.triggerKind === CodeActionTriggerKind.Invoked) {
-		const textDocument = docs.get(params.textDocument.uri);
-		if (!textDocument) {
-			return;
+		const doc = docs.get(params.textDocument.uri);
+		if (doc) {
+			const text = doc.getText(params.range);
+			if (text) {
+				actions.push({
+					title: "Create Issue from Selection",
+					kind: CodeActionKind.RefactorRewrite,
+					command: {
+						command: "linear-ls.createIssue",
+						title: "Create Issue",
+						arguments: [params.textDocument.uri, params.range, text.trim()],
+					},
+				});
+			}
 		}
-
-		const text = textDocument.getText(params.range);
-		if (!text) {
-			return;
-		}
-
-		const action: CodeAction = {
-			title: "Create Ticket from Selection",
-			kind: CodeActionKind.RefactorRewrite,
-			command: {
-				command: "linear-ls.createTicket",
-				title: "Create Ticket",
-				arguments: [params.textDocument.uri, params.range, text.trim()],
-			},
-		};
-
-		return [action];
 	}
+
+	const docPositions = positions.get(params.textDocument.uri);
+	for (const p of docPositions ?? []) {
+		if (p.positionStart.line === params.range.start.line) {
+			if (
+				params.range.start.character >= p.positionStart.character &&
+				params.range.start.character <= p.positionEnd.character
+			) {
+				let issue = issues.get(p.issueKey);
+				if (!issue) {
+					issue = await client.issue(p.issueKey).catch(() => undefined);
+					if (issue) issues.set(p.issueKey, issue);
+				}
+
+				if (issue?.url) {
+					actions.push({
+						title: `Open ${p.issueKey} in Linear`,
+						kind: CodeActionKind.Empty,
+						command: {
+							command: "linear-ls.openIssue",
+							title: "Open in Linear",
+							arguments: [issue.url],
+						},
+					});
+				}
+			}
+		}
+	}
+
+	return actions;
 });
 
 conn.onExecuteCommand(async (params) => {
+	if (params.command === "linear-ls.openIssue") {
+		const [url] = params.arguments || [];
+		if (url) {
+			conn.window.showDocument({ uri: url, external: true });
+		}
+	}
+
 	if (params.command === "linear-ls.createTicket") {
 		const [uri, range, title] = params.arguments || [];
 		if (!uri || !range || !title) {
@@ -270,7 +303,7 @@ conn.onHover(async (params) => {
 	let issue = issues.get(pos.issueKey);
 	if (!issue) {
 		issue = await client.issue(pos.issueKey).catch(() => undefined);
-		issues.set(pos.issueKey, issue);
+		if (issue) issues.set(pos.issueKey, issue);
 	}
 
 	if (!issue) {

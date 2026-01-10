@@ -1,10 +1,11 @@
 import { type Issue, type IssueSearchPayload, LinearClient } from "@linear/sdk";
 import {
+	type CodeAction,
+	CodeActionKind,
 	CodeActionTriggerKind,
 	type CompletionItem,
 	CompletionItemKind,
 	createConnection,
-	type InitializeResult,
 	ProposedFeatures,
 	SemanticTokensBuilder,
 	SemanticTokenTypes,
@@ -24,19 +25,18 @@ type IssuePosition = {
 	offsetEnd: number;
 };
 
-const connection = createConnection(ProposedFeatures.all);
-const documents = new TextDocuments(TextDocument);
-
+const conn = createConnection(ProposedFeatures.all);
+const docs = new TextDocuments(TextDocument);
 const teams = new Map<string, string>();
 const issues = new Map<string, Issue | undefined>();
-const issuePositions = new Map<string, Array<IssuePosition>>();
+const positions = new Map<string, Array<IssuePosition>>();
 
 let client: LinearClient;
 
-connection.onInitialize(async () => {
+conn.onInitialize(async () => {
 	const apiKey = process.env.LINEAR_API_KEY;
 	if (!apiKey) {
-		connection.window.showWarningMessage(
+		conn.window.showWarningMessage(
 			"Linear API Key not found. Please set the LINEAR_API_KEY environment variable.",
 		);
 
@@ -51,10 +51,13 @@ connection.onInitialize(async () => {
 		});
 	});
 
-	const result: InitializeResult = {
+	return {
 		capabilities: {
 			textDocumentSync: TextDocumentSyncKind.Incremental,
 			codeActionProvider: {},
+			executeCommandProvider: {
+				commands: ["linear-ls.createTicket"],
+			},
 			hoverProvider: {},
 			completionProvider: { resolveProvider: true },
 			semanticTokensProvider: {
@@ -66,13 +69,11 @@ connection.onInitialize(async () => {
 			},
 		},
 	};
-
-	return result;
 });
 
-connection.onCodeAction((params) => {
+conn.onCodeAction((params) => {
 	if (params.context.triggerKind === CodeActionTriggerKind.Invoked) {
-		const textDocument = documents.get(params.textDocument.uri);
+		const textDocument = docs.get(params.textDocument.uri);
 		if (!textDocument) {
 			return;
 		}
@@ -82,55 +83,117 @@ connection.onCodeAction((params) => {
 			return;
 		}
 
-		// TODO: Implement command to create ticket
-		return [{ title: "Create Ticket" }];
+		const action: CodeAction = {
+			title: "Create Ticket from Selection",
+			kind: CodeActionKind.RefactorRewrite,
+			command: {
+				command: "linear-ls.createTicket",
+				title: "Create Ticket",
+				arguments: [params.textDocument.uri, params.range, text.trim()],
+			},
+		};
+
+		return [action];
+	}
+});
+
+conn.onExecuteCommand(async (params) => {
+	if (params.command === "linear-ls.createTicket") {
+		const [uri, range, title] = params.arguments || [];
+		if (!uri || !range || !title) {
+			return;
+		}
+
+		if (teams.size === 0) {
+			conn.window.showErrorMessage(
+				"No teams found. Please ensure you have access to at least one Linear team.",
+			);
+			return;
+		}
+
+		// Use the first team found
+		const teamId = teams.values().next().value;
+		if (!teamId) {
+			return;
+		}
+
+		try {
+			const issue = await client.createIssue({ teamId, title });
+			const createdIssue = await issue.issue;
+
+			if (createdIssue) {
+				const identifier = createdIssue.identifier;
+				const url = createdIssue.url;
+				const link = `[${identifier}](${url})`;
+
+				const edit = {
+					changes: {
+						[uri]: [
+							{
+								range: range,
+								newText: link,
+							},
+						],
+					},
+				};
+
+				await conn.workspace.applyEdit(edit);
+			}
+		} catch (e) {
+			conn.console.error(`Error creating issue: ${e}`);
+			conn.window.showErrorMessage(`Failed to create Linear issue: ${e}`);
+		}
 	}
 });
 
 let documentChangeTimeout: NodeJS.Timeout;
-documents.onDidChangeContent((change) => {
+docs.onDidChangeContent((change) => {
 	clearTimeout(documentChangeTimeout);
 	documentChangeTimeout = setTimeout(() => {
 		const text = change.document.getText();
 		const documentPositions: Array<IssuePosition> = [];
+		const teamKeys = Array.from(teams.keys());
 
-		Array.from(teams.keys())
-			.flatMap((prefix) => {
-				return Array.from(text.matchAll(new RegExp(`${prefix}-[0-9]*`, "g")));
-			})
-			.forEach((m) => {
-				const issueKey = m[0];
-				const positionStart = change.document.positionAt(m.index ?? 0);
-				const positionEnd = change.document.positionAt(
-					issueKey.length + (m.index ?? 0),
-				);
+		if (teamKeys.length === 0) {
+			positions.set(change.document.uri, []);
+			return;
+		}
 
-				// Write down that we've seen the issue, but don't
-				// fetch the definition just yet.
-				if (!issues.has(issueKey)) {
-					issues.set(issueKey, undefined);
-				}
+		const regexp = new RegExp(`(${teamKeys.join("|")})-[0-9]*`, "g");
 
-				documentPositions.push({
-					issueKey,
-					positionStart,
-					positionEnd,
-					offsetStart: change.document.offsetAt(positionStart),
-					offsetEnd: change.document.offsetAt(positionEnd),
-				});
+		Array.from(text.matchAll(regexp)).forEach((m) => {
+			const issueKey = m[0];
+			const positionStart = change.document.positionAt(m.index ?? 0);
+			const positionEnd = change.document.positionAt(
+				issueKey.length + (m.index ?? 0),
+			);
+
+			// Write down that we've seen the issue, but don't
+			// fetch the definition just yet.
+			if (!issues.has(issueKey)) {
+				issues.set(issueKey, undefined);
+			}
+
+			documentPositions.push({
+				issueKey,
+				positionStart,
+				positionEnd,
+				offsetStart: change.document.offsetAt(positionStart),
+				offsetEnd: change.document.offsetAt(positionEnd),
 			});
+		});
 
-		issuePositions.set(change.document.uri, documentPositions);
+		positions.set(change.document.uri, documentPositions);
 	}, 200);
 });
 
-connection.onHover(async (params) => {
-	const documentPositions = issuePositions.get(params.textDocument.uri);
+conn.onHover(async (params) => {
+	const documentPositions = positions.get(params.textDocument.uri);
 	if (!documentPositions) {
 		return;
 	}
 
-	const textDocument = documents.get(params.textDocument.uri);
+	const textDocument = docs.get(params.textDocument.uri);
 	if (!textDocument) {
 		return;
 	}
@@ -163,12 +226,12 @@ connection.onHover(async (params) => {
 	};
 });
 
-connection.onCompletion(async (params): Promise<CompletionItem[]> => {
+conn.onCompletion(async (params): Promise<CompletionItem[]> => {
 	if (teams.size === 0) {
 		return [];
 	}
 
-	const document = documents.get(params.textDocument.uri);
+	const document = docs.get(params.textDocument.uri);
 	if (!document) {
 		return [];
 	}
@@ -199,7 +262,7 @@ connection.onCompletion(async (params): Promise<CompletionItem[]> => {
 			teamId: teams.get(teamKey),
 		});
 	} catch (e) {
-		connection.console.error(`LLS: Error searching issues: ${e}`);
+		conn.console.error(`LLS: Error searching issues: ${e}`);
 		return [];
 	}
 
@@ -219,25 +282,15 @@ connection.onCompletion(async (params): Promise<CompletionItem[]> => {
 	});
 });
 
-connection.languages.semanticTokens.on((params) => {
-	const positions = issuePositions.get(params.textDocument.uri);
-	if (!positions) {
+conn.languages.semanticTokens.on((params) => {
+	const docPositions = positions.get(params.textDocument.uri);
+	if (!docPositions) {
 		return { data: [] };
 	}
 
 	const builder = new SemanticTokensBuilder();
 
-	positions.sort((a, b) => {
-		if (a.positionStart.line !== b.positionStart.line) {
-			return a.positionStart.line - b.positionStart.line;
-		}
-
-		return a.positionStart.character - b.positionStart.character;
-	});
-
-	for (const p of positions) {
-		// Semantic tokens are assumed to be single-line. If a token ever spans multiple
-		// lines, its length must be calculated differently. For now, we ignore such ranges.
+	for (const p of docPositions) {
 		if (p.positionStart.line !== p.positionEnd.line) {
 			continue;
 		}
@@ -256,6 +309,6 @@ connection.languages.semanticTokens.on((params) => {
 	return builder.build();
 });
 
-documents.listen(connection);
+docs.listen(conn);
 
-connection.listen();
+conn.listen();

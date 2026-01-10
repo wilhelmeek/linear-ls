@@ -1,44 +1,71 @@
 # linear-ls
 
-Linear Language Server
+A Language Server for [Linear](https://linear.app/).
+
+`linear-ls` integrates your Linear issues directly into your editor, providing context, quick actions, and status updates.
 
 ## Installation
 
-```
+```bash
 npm i -g linear-ls
 ```
 
-### neovim
+## Configuration
+
+The server requires your Linear API key to function. Set the `LINEAR_API_KEY` environment variable in your shell or editor configuration.
+
+### Neovim
 
 ```lua
 vim.lsp.config("linear-ls", {
-	cmd = { "linear-ls", "--stdio" },
-	filetypes = { "typescript" },
+  cmd = { "linear-ls", "--stdio" },
+  filetypes = { "typescript" },
 })
 
 vim.lsp.enable({
-	"linear-ls",
+  "linear-ls",
 })
 ```
 
-And have your Linear token sourced as `LINEAR_API_KEY`.
+Otherwise, if using lspconfig, add the following configuration to your Neovim setup:
+
+```lua
+local lspconfig = require('lspconfig')
+local configs = require('lspconfig.configs')
+
+if not configs.linear_ls then
+  configs.linear_ls = {
+    default_config = {
+      cmd = { "linear-ls", "--stdio" },
+      filetypes = { "markdown", "typescript", "javascript", "go", "text" },
+      root_dir = lspconfig.util.root_pattern('.git'),
+      settings = {},
+    },
+  }
+end
+
+lspconfig.linear_ls.setup({})
+```
 
 ## Features
 
-### Hover on Issues
+### Hover Details
 
-Hovering on ticket identifier shows the ticket description.
+Hover over any Linear issue key (e.g., `ENG-123`) in your code or comments to see its description.
 
-<img width="800" alt="image" src="https://user-images.githubusercontent.com/609452/218294991-ef0dfe07-832d-418b-9e7e-8b630f4c2c49.png">
+### Autocompletion
 
-### Issue Completion
+Search for issues directly while typing. Type your team key followed by a hyphen and a search term (e.g., `ENG-log`) to trigger a search. Selecting a result inserts a Markdown-formatted link to the issue: `[ENG-123](https://linear.app/...)`.
 
-Typing team key, hyphen and search term (e.g. `EUC-thing`) triggers issue search. Selecting a result puts in a link to your issue.
+### Status Diagnostics
 
-<img width="800" alt="image" src="https://user-images.githubusercontent.com/609452/218295062-4a0bbd6c-bb92-44c6-9301-4ab7b1522978.png">
+The language server checks the status of issues referenced in your documents. Completed, Canceled, or Archived issues are highlighted with an informational diagnostic, helping you identify outdated references.
 
-### Create Ticket from Text Selection
+### Create Ticket from Selection
 
-Select text in your editor and trigger the code action (e.g., `ga` in Neovim or `Cmd+.` in VS Code) to create a Linear issue. The selected text will be used as the issue title, and it will be replaced with a link to the created ticket in the format `[KEY-123](https://linear.app/...)`.
+Select any text in your document and trigger your editor's "Code Actions" (e.g., `Cmd+.` or `leader + ca`). Choose _Create Ticket from Selection_ to create a new Linear issue using the selected text as the title, and automatically replace the text with a Markdown link to the new issue.
 
-_Note: The server currently uses the first available team it has access to._
+### Open in Linear
+
+Place your cursor on an existing issue key (e.g., `ENG-123`) and trigger "Code Actions". Choose _Open ENG-123 in Linear_ to open the ticket directly in your default web browser.
+

@@ -10,22 +10,14 @@ npm i -g linear-ls
 
 ### neovim
 
-If you use `lspconfig`, add the following:
-
 ```lua
-if not lspconfigconfigs.linear_ls then
-  lspconfigconfigs.linear_ls = {
-    default_config = {
-      cmd = { "linear-ls", "--stdio" },
-      filetypes = { "typescript" },
-      root_dir = function(fname)
-        return lspconfig.util.find_git_ancestor(fname)
-      end,
-    },
-}
-end
-lspconfig.lls.setup({
-  capabilities = capabilities,
+vim.lsp.config("linear-ls", {
+	cmd = { "linear-ls", "--stdio" },
+	filetypes = { "typescript" },
+})
+
+vim.lsp.enable({
+	"linear-ls",
 })
 ```
 
@@ -49,4 +41,4 @@ Typing team key, hyphen and search term (e.g. `EUC-thing`) triggers issue search
 
 Select text in your editor and trigger the code action (e.g., `ga` in Neovim or `Cmd+.` in VS Code) to create a Linear issue. The selected text will be used as the issue title, and it will be replaced with a link to the created ticket in the format `[KEY-123](https://linear.app/...)`.
 
-*Note: The server currently uses the first available team it has access to.*
+_Note: The server currently uses the first available team it has access to._

@@ -111,8 +111,25 @@ conn.onExecuteCommand(async (params) => {
 			return;
 		}
 
-		// Use the first team found
-		const teamId = teams.values().next().value;
+		let teamId: string | undefined;
+
+		if (teams.size === 1) {
+			teamId = teams.values().next().value;
+		} else {
+			const teamItems = Array.from(teams.keys()).map((key) => ({
+				title: key,
+			}));
+
+			const selected = await conn.window.showInformationMessage(
+				"Select a team for the new ticket:",
+				...teamItems,
+			);
+
+			if (selected) {
+				teamId = teams.get(selected.title);
+			}
+		}
+
 		if (!teamId) {
 			return;
 		}

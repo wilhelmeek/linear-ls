@@ -8,6 +8,7 @@ import {
 	createConnection,
 	type Diagnostic,
 	DiagnosticSeverity,
+	MarkupKind,
 	ProposedFeatures,
 	SemanticTokensBuilder,
 	SemanticTokenTypes,
@@ -310,7 +311,10 @@ conn.onHover(async (params) => {
 	}
 
 	return {
-		contents: issue.description ?? "Not available",
+		contents: {
+			kind: MarkupKind.Markdown,
+			value: `**${issue.identifier}: ${issue.title}**\n\n${issue.description ?? ""}`,
+		},
 	};
 });
 
@@ -361,7 +365,11 @@ conn.onCompletion(async (params): Promise<CompletionItem[]> => {
 
 		return {
 			data: i,
-			detail: i.description ?? "Not available",
+			detail: i.title,
+			documentation: {
+				kind: MarkupKind.Markdown,
+				value: i.description ?? "No description available",
+			},
 			insertText: `[${i.identifier}](${i.url})`,
 			label,
 			kind: CompletionItemKind.Reference,

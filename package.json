@@ -1,6 +1,6 @@
 {
 	"name": "linear-ls",
-	"version": "1.3.0",
+	"version": "1.3.1",
 	"description": "Linear Language Server",
 	"bin": "index.js",
 	"main": "index.js",

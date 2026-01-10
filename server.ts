@@ -6,6 +6,8 @@ import {
 	type CompletionItem,
 	CompletionItemKind,
 	createConnection,
+	type Diagnostic,
+	DiagnosticSeverity,
 	ProposedFeatures,
 	SemanticTokensBuilder,
 	SemanticTokenTypes,
@@ -32,6 +34,45 @@ const issues = new Map<string, Issue | undefined>();
 const positions = new Map<string, Array<IssuePosition>>();
 
 let client: LinearClient;
+
+async function diagnostics(textDocument: TextDocument) {
+	if (!client) {
+		return;
+	}
+
+	const docPositions = positions.get(textDocument.uri);
+	if (!docPositions) {
+		return;
+	}
+
+	const diagnostics: Diagnostic[] = [];
+
+	for (const p of docPositions) {
+		let issue = issues.get(p.issueKey);
+		if (!issue) {
+			issue = await client.issue(p.issueKey).catch(() => undefined);
+			issues.set(p.issueKey, issue);
+		}
+
+		if (issue?.completedAt) {
+			diagnostics.push({
+				severity: DiagnosticSeverity.Information,
+				range: { start: p.positionStart, end: p.positionEnd },
+				message: `${p.issueKey} is completed`,
+				source: "Linear",
+			});
+		} else if (issue?.archivedAt) {
+			diagnostics.push({
+				severity: DiagnosticSeverity.Information,
+				range: { start: p.positionStart, end: p.positionEnd },
+				message: `${p.issueKey} is archived`,
+				source: "Linear",
+			});
+		}
+	}
+
+	conn.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+}
 
 conn.onInitialize(async () => {
 	const apiKey = process.env.LINEAR_API_KEY;
@@ -166,7 +207,7 @@ conn.onExecuteCommand(async (params) => {
 let documentChangeTimeout: NodeJS.Timeout;
 docs.onDidChangeContent((change) => {
 	clearTimeout(documentChangeTimeout);
-	documentChangeTimeout = setTimeout(() => {
+	documentChangeTimeout = setTimeout(async () => {
 		const text = change.document.getText();
 		const documentPositions: Array<IssuePosition> = [];
 		const teamKeys = Array.from(teams.keys());
@@ -201,42 +242,40 @@ docs.onDidChangeContent((change) => {
 		});
 
 		positions.set(change.document.uri, documentPositions);
-	}, 200);
+
+		await diagnostics(change.document);
+	}, 1000);
 });
 
 conn.onHover(async (params) => {
-	const documentPositions = positions.get(params.textDocument.uri);
-	if (!documentPositions) {
+	const docPositions = positions.get(params.textDocument.uri);
+	if (!docPositions) {
 		return;
 	}
 
-	const textDocument = docs.get(params.textDocument.uri);
-	if (!textDocument) {
+	const doc = docs.get(params.textDocument.uri);
+	if (!doc) {
 		return;
 	}
 
-	const cursorOffset = textDocument.offsetAt(params.position);
-	const targetIssue = documentPositions.find(
+	const cursorOffset = doc.offsetAt(params.position);
+	const pos = docPositions.find(
 		(dp) => dp.offsetStart <= cursorOffset && dp.offsetEnd > cursorOffset,
 	);
 
-	if (!targetIssue) {
+	if (!pos) {
 		return;
 	}
 
-	const issueFromCache = issues.get(targetIssue.issueKey);
-	if (issueFromCache) {
-		return {
-			contents: issueFromCache.description ?? "Not available",
-		};
+	let issue = issues.get(pos.issueKey);
+	if (!issue) {
+		issue = await client.issue(pos.issueKey).catch(() => undefined);
+		issues.set(pos.issueKey, issue);
 	}
 
-	const issue = await client.issue(targetIssue.issueKey);
 	if (!issue) {
 		return;
 	}
-
-	issues.set(targetIssue.issueKey, issue);
 
 	return {
 		contents: issue.description ?? "Not available",

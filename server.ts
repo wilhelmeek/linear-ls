@@ -231,7 +231,6 @@ conn.onExecuteCommand(async (params) => {
 				await conn.workspace.applyEdit(edit);
 			}
 		} catch (e) {
-			conn.console.error(`Error creating issue: ${e}`);
 			conn.window.showErrorMessage(`Failed to create Linear issue: ${e}`);
 		}
 	}
@@ -350,8 +349,7 @@ conn.onCompletion(async (params): Promise<CompletionItem[]> => {
 		issues = await client.searchIssues(searchString, {
 			teamId: teams.get(teamKey),
 		});
-	} catch (e) {
-		conn.console.error(`LLS: Error searching issues: ${e}`);
+	} catch {
 		return [];
 	}
 
@@ -372,14 +370,8 @@ conn.onCompletion(async (params): Promise<CompletionItem[]> => {
 });
 
 conn.languages.semanticTokens.on((params) => {
-	const docPositions = positions.get(params.textDocument.uri);
-	if (!docPositions) {
-		return { data: [] };
-	}
-
 	const builder = new SemanticTokensBuilder();
-
-	for (const p of docPositions) {
+	for (const p of positions.get(params.textDocument.uri) ?? []) {
 		if (p.positionStart.line !== p.positionEnd.line) {
 			continue;
 		}

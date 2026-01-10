@@ -27,7 +27,7 @@ vim.lsp.enable({
 })
 ```
 
-Otherwise, if using lspconfig, add the following configuration to your Neovim setup:
+Otherwise, if using lspconfig:
 
 ```lua
 local lspconfig = require('lspconfig')
@@ -68,4 +68,3 @@ Select any text in your document and trigger your editor's "Code Actions" (e.g.,
 ### Open in Linear
 
 Place your cursor on an existing issue key (e.g., `ENG-123`) and trigger "Code Actions". Choose _Open ENG-123 in Linear_ to open the ticket directly in your default web browser.
-
